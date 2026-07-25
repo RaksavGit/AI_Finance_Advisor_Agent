@@ -72,6 +72,21 @@ def initialize_session_state():
     if 'recommendations' not in st.session_state:
         st.session_state.recommendations = None
 
+    # Initialize expense and income state
+    if 'monthly_income' not in st.session_state:
+        st.session_state.monthly_income = 100000
+
+    if 'expenses' not in st.session_state:
+        st.session_state.expenses = {
+            'Rent': 28000,
+            'Food': 12000,
+            'Utilities': 3500,
+            'Travel': 8000,
+            'EMI': 15000,
+            'Shopping': 12000,
+            'Entertainment': 6000,
+        }
+
 
 def render_header():
     """Render page header with feature badges."""
@@ -103,11 +118,11 @@ def render_dashboard(system: FinanceAdvisorSystem):
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        income = st.number_input(
+        st.session_state.monthly_income = st.number_input(
             "Monthly Income ($)",
             min_value=1000,
             max_value=1000000,
-            value=100000,
+            value=st.session_state.monthly_income,
             step=1000
         )
 
@@ -117,23 +132,22 @@ def render_dashboard(system: FinanceAdvisorSystem):
     # Expense inputs
     st.subheader("Monthly Expenses")
 
-    expenses = {}
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        expenses['Rent'] = st.number_input("Rent", min_value=0, value=28000, step=100)
-        expenses['Food'] = st.number_input("Food", min_value=0, value=12000, step=100)
+        st.session_state.expenses['Rent'] = st.number_input("Rent", min_value=0, value=st.session_state.expenses['Rent'], step=100)
+        st.session_state.expenses['Food'] = st.number_input("Food", min_value=0, value=st.session_state.expenses['Food'], step=100)
 
     with col2:
-        expenses['Utilities'] = st.number_input("Utilities", min_value=0, value=3500, step=100)
-        expenses['Travel'] = st.number_input("Travel", min_value=0, value=8000, step=100)
+        st.session_state.expenses['Utilities'] = st.number_input("Utilities", min_value=0, value=st.session_state.expenses['Utilities'], step=100)
+        st.session_state.expenses['Travel'] = st.number_input("Travel", min_value=0, value=st.session_state.expenses['Travel'], step=100)
 
     with col3:
-        expenses['EMI'] = st.number_input("EMI/Debt", min_value=0, value=15000, step=100)
-        expenses['Shopping'] = st.number_input("Shopping", min_value=0, value=12000, step=100)
+        st.session_state.expenses['EMI'] = st.number_input("EMI/Debt", min_value=0, value=st.session_state.expenses['EMI'], step=100)
+        st.session_state.expenses['Shopping'] = st.number_input("Shopping", min_value=0, value=st.session_state.expenses['Shopping'], step=100)
 
     with col4:
-        expenses['Entertainment'] = st.number_input("Entertainment", min_value=0, value=6000, step=100)
+        st.session_state.expenses['Entertainment'] = st.number_input("Entertainment", min_value=0, value=st.session_state.expenses['Entertainment'], step=100)
         st.empty()
 
     if st.button("🔍 Analyze Finances", use_container_width=True):
@@ -141,8 +155,8 @@ def render_dashboard(system: FinanceAdvisorSystem):
             # Analyze expenses
             analysis = system.analyze_expenses(
                 st.session_state.session_id,
-                income,
-                expenses
+                st.session_state.monthly_income,
+                st.session_state.expenses
             )
             st.session_state.analysis_results = analysis
 
@@ -162,7 +176,7 @@ def render_dashboard(system: FinanceAdvisorSystem):
     # Display results if available
     if st.session_state.analysis_results:
         st.markdown("---")
-        render_analysis_results(st.session_state.analysis_results, expenses, income)
+        render_analysis_results(st.session_state.analysis_results, st.session_state.expenses, st.session_state.monthly_income)
 
 
 def render_analysis_results(analysis, expenses, income):
