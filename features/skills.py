@@ -361,13 +361,29 @@ class ChatResponderSkill(BaseSkill):
         analysis = context.input_data.get('analysis', {})
         recommendations = context.input_data.get('recommendations', {})
 
-        # Simple intent detection
-        if 'save' in query.lower() or 'savings' in query.lower():
-            response = f"Your current savings rate is {analysis.get('savings_percentage', 0):.1f}%"
-        elif 'spend' in query.lower():
-            response = f"Your total monthly expenses are ${analysis.get('total_expenses', 0):,.0f}"
+        query_lower = query.lower()
+
+        # Intent detection for savings-related queries
+        if ('save' in query_lower or 'savings' in query_lower) and ('how' in query_lower or 'more' in query_lower):
+            # Handle "How to save more?" queries
+            recs = recommendations.get('recommendations', []) if isinstance(recommendations, dict) else recommendations
+            if recs:
+                response = "**Top Opportunities to Save More:**\n\n"
+                for i, rec in enumerate(recs[:5], 1):
+                    title = rec.get('title', 'Recommendation') if isinstance(rec, dict) else str(rec)
+                    savings = rec.get('potential_savings', 0) if isinstance(rec, dict) else 0
+                    action = rec.get('action', '') if isinstance(rec, dict) else ''
+                    response += f"{i}. **{title}**\n   💰 Save: ${savings:,.0f}/month\n"
+                    if action:
+                        response += f"   📋 {action}\n\n"
+            else:
+                response = f"Your current savings rate is {analysis.get('savings_percentage', 0):.1f}%. You're managing your finances well!"
+        elif 'save' in query_lower or 'savings' in query_lower:
+            response = f"**Your Savings Overview:**\n\nCurrent savings rate: {analysis.get('savings_percentage', 0):.1f}%\nMonthly savings: ${analysis.get('net_savings', 0):,.0f}"
+        elif 'spend' in query_lower or 'spending' in query_lower:
+            response = f"**Your Spending Analysis:**\n\nTotal monthly expenses: ${analysis.get('total_expenses', 0):,.0f}"
         else:
-            response = "How can I help you with your finances?"
+            response = "How can I help you with your finances? You can ask about:\n- How to save more\n- Where you're spending too much\n- Your savings percentage\n- Specific spending categories"
 
         return {
             'response': response,
