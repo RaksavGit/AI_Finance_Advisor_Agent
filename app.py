@@ -793,13 +793,12 @@ def main():
 
     # Sidebar navigation
     page = st.sidebar.radio(
-        "Navigation",
-        ["Dashboard", "Analysis", "Chatbot"],
-        icons=["📊", "📈", "💬"]
+        "📊 Navigation",
+        ["📊 Dashboard", "📈 Analysis", "💬 Chatbot"]
     )
 
     # Dashboard tab content
-    if page == "Dashboard":
+    if page == "📊 Dashboard":
         st.markdown("---")
         render_metrics_dashboard()
         st.markdown("---")
@@ -816,7 +815,7 @@ def main():
         render_savings_trend_chart()
 
     # Analysis tab content
-    elif page == "Analysis":
+    elif page == "📈 Analysis":
         st.markdown("---")
 
         col1, col2 = st.columns(2)
@@ -846,7 +845,7 @@ def main():
         render_recommendations()
 
     # Chatbot tab content
-    elif page == "Chatbot":
+    elif page == "💬 Chatbot":
         st.markdown("---")
         render_chatbot()
 
