@@ -708,22 +708,30 @@ def render_recommendations():
 
     # Create tabs for recommendation priority levels
     priority_map = {'HIGH': 0, 'MEDIUM': 1, 'LOW': 2}
-    sorted_recs = sorted(recommendations, key=lambda x: priority_map.get(x['priority'], 3))
+    sorted_recs = sorted(recommendations, key=lambda x: priority_map.get(x.get('priority', 'LOW'), 3))
 
     for i, rec in enumerate(sorted_recs, 1):
+        # Safely get recommendation details with defaults
+        title = rec.get('title', 'Recommendation')
+        priority = rec.get('priority', 'MEDIUM')
+        category = rec.get('category', 'General')
+        description = rec.get('description', 'Optimize your spending')
+        potential_savings = rec.get('potential_savings', 0)
+        action = rec.get('action', 'Review this recommendation')
+
         priority_color = {
             'HIGH': '🔴',
             'MEDIUM': '🟡',
             'LOW': '🟢'
-        }.get(rec['priority'], '⚪')
+        }.get(priority, '⚪')
 
-        with st.expander(f"{priority_color} {rec['title']} - Save ${rec['potential_savings']:,.0f}/month"):
-            st.markdown(f"**Priority:** {rec['priority']}")
-            st.markdown(f"**Category:** {rec['category']}")
-            st.markdown(f"**Description:** {rec['description']}")
-            st.markdown(f"**Monthly Savings Potential:** ${rec['potential_savings']:,.0f}")
-            st.markdown(f"**Annual Savings:** ${rec['potential_savings'] * 12:,.0f}")
-            st.markdown(f"**Action:** {rec['action']}")
+        with st.expander(f"{priority_color} {title} - Save ${potential_savings:,.0f}/month"):
+            st.markdown(f"**Priority:** {priority}")
+            st.markdown(f"**Category:** {category}")
+            st.markdown(f"**Description:** {description}")
+            st.markdown(f"**Monthly Savings Potential:** ${potential_savings:,.0f}")
+            st.markdown(f"**Annual Savings:** ${potential_savings * 12:,.0f}")
+            st.markdown(f"**Action:** {action}")
 
 
 def render_chatbot():

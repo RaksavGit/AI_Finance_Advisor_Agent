@@ -252,28 +252,35 @@ def render_recommendations(system: FinanceAdvisorSystem):
         st.info("Perform analysis first to see recommendations")
         return
 
-    recommendations = st.session_state.recommendations['recommendations']
+    recommendations = st.session_state.recommendations.get('recommendations', [])
 
     if not recommendations:
         st.success("✅ Your spending is well-optimized!")
         return
 
     for i, rec in enumerate(recommendations, 1):
-        with st.expander(f"{i}. {rec['title']} - Save ${rec['potential_savings']:,.0f}/month"):
+        # Safely get recommendation details with defaults
+        title = rec.get('title', 'Recommendation')
+        potential_savings = rec.get('potential_savings', 0)
+        priority = rec.get('priority', 'MEDIUM')
+        description = rec.get('description', 'Optimize your spending')
+        action = rec.get('action', 'Review this recommendation')
+
+        with st.expander(f"{i}. {title} - Save ${potential_savings:,.0f}/month"):
             col1, col2, col3 = st.columns(3)
 
             with col1:
-                priority_emoji = {'HIGH': '🔴', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(rec['priority'], '⚪')
-                st.metric("Priority", f"{priority_emoji} {rec['priority']}")
+                priority_emoji = {'HIGH': '🔴', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(priority, '⚪')
+                st.metric("Priority", f"{priority_emoji} {priority}")
 
             with col2:
-                st.metric("Monthly Savings", f"${rec['potential_savings']:,.0f}")
+                st.metric("Monthly Savings", f"${potential_savings:,.0f}")
 
             with col3:
-                st.metric("Annual Savings", f"${rec['potential_savings']*12:,.0f}")
+                st.metric("Annual Savings", f"${potential_savings*12:,.0f}")
 
-            st.markdown(f"**Description**: {rec['description']}")
-            st.markdown(f"**Action**: {rec['action']}")
+            st.markdown(f"**Description**: {description}")
+            st.markdown(f"**Action**: {action}")
 
 
 def render_chatbot(system: FinanceAdvisorSystem):
