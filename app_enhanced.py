@@ -493,10 +493,30 @@ def render_recommendations(system: FinanceAdvisorSystem):
         return
 
     recommendations = st.session_state.recommendations.get('recommendations', [])
+    analysis = st.session_state.analysis_results or {}
+    savings_rate = analysis.get('savings_percentage', 0)
 
     if not recommendations:
-        st.success("✅ Your spending is well-optimized!")
+        # Evaluate if there are truly no optimization opportunities
+        if savings_rate >= 20:
+            st.success("✅ Excellent! Your spending is well-optimized and you're meeting your 20% savings target!")
+        elif savings_rate >= 15:
+            st.info("📊 Your spending is reasonably managed, but there's room for improvement to reach the 20% savings target.")
+        else:
+            st.warning("⚠️ While no major issues detected, consider reviewing your discretionary spending to improve your savings rate.")
         return
+
+    # Show summary header for recommendations
+    total_potential_savings = sum(rec.get('potential_savings', 0) for rec in recommendations)
+
+    if savings_rate < 10:
+        st.error(f"🚨 **Critical**: Your savings rate is only {savings_rate:.1f}%. Below are {len(recommendations)} urgent recommendations to improve your finances. Potential total savings: ₹{total_potential_savings:,.0f}/month")
+    elif savings_rate < 15:
+        st.warning(f"⚠️ **Action Needed**: Your savings rate is {savings_rate:.1f}%. Below are {len(recommendations)} recommendations to help you reach 20%. Potential total savings: ₹{total_potential_savings:,.0f}/month")
+    else:
+        st.info(f"📈 Below are {len(recommendations)} recommendations to further optimize your spending. Potential total savings: ₹{total_potential_savings:,.0f}/month")
+
+    st.markdown("---")
 
     for i, rec in enumerate(recommendations, 1):
         # Safely get recommendation details with defaults
@@ -625,14 +645,42 @@ def render_observability(system: FinanceAdvisorSystem):
         st.subheader("System Health")
         health = system.get_health_status()
 
-        health_colors = {
-            'healthy': '🟢',
-            'degraded': '🟡',
-            'unhealthy': '🔴'
+        # Status styling with colors
+        status_config = {
+            'healthy': {
+                'emoji': '✅',
+                'color': '#22c55e',
+                'bg_color': '#f0fdf4',
+                'border_color': '#22c55e'
+            },
+            'degraded': {
+                'emoji': '⚠️',
+                'color': '#f59e0b',
+                'bg_color': '#fffbeb',
+                'border_color': '#f59e0b'
+            },
+            'unhealthy': {
+                'emoji': '❌',
+                'color': '#ef4444',
+                'bg_color': '#fef2f2',
+                'border_color': '#ef4444'
+            }
         }
 
-        status_emoji = health_colors.get(health['status'], '⚪')
-        st.markdown(f"## {status_emoji} Status: {health['status'].upper()}")
+        config = status_config.get(health['status'], status_config['unhealthy'])
+        status_html = f"""
+        <div style='background-color: {config["bg_color"]};
+                    border: 2px solid {config["border_color"]};
+                    border-radius: 10px;
+                    padding: 20px;
+                    text-align: center;
+                    margin: 15px 0;'>
+            <h2 style='margin: 0; color: {config["color"]}; font-size: 1.8em;'>
+                {config['emoji']} {health['status'].upper()}
+            </h2>
+        </div>
+        """
+        st.markdown(status_html, unsafe_allow_html=True)
 
         col1, col2, col3, col4 = st.columns(4)
         with col1:
