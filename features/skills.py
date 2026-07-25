@@ -356,18 +356,166 @@ class ChatResponderSkill(BaseSkill):
         super().__init__(metadata)
 
     def execute(self, context: SkillExecutionContext) -> Dict[str, Any]:
-        """Execute chat response generation."""
+        """Execute chat response generation with enhanced question handling."""
         query = context.input_data.get('query', '')
         analysis = context.input_data.get('analysis', {})
         recommendations = context.input_data.get('recommendations', {})
 
-        # Simple intent detection
-        if 'save' in query.lower() or 'savings' in query.lower():
-            response = f"Your current savings rate is {analysis.get('savings_percentage', 0):.1f}%"
-        elif 'spend' in query.lower():
-            response = f"Your total monthly expenses are ${analysis.get('total_expenses', 0):,.0f}"
-        else:
-            response = "How can I help you with your finances?"
+        query_lower = query.lower()
+        response = ""
+
+        # Validate we have actual data
+        if not analysis or analysis == {}:
+            return {
+                'response': "Please run the **Analyze Finances** button on the Dashboard first to get financial insights. I need your income and expense data to help you!",
+                'query': query,
+                'intent': 'financial_query',
+            }
+
+        # 1. How to save more / Savings opportunities
+        if ('save' in query_lower or 'savings' in query_lower) and ('how' in query_lower or 'more' in query_lower):
+            recs = recommendations.get('recommendations', []) if isinstance(recommendations, dict) else recommendations
+            savings_rate = analysis.get('savings_percentage', 0)
+            monthly_income = analysis.get('monthly_income', 1)  # Default to 1 to avoid division by zero
+            current_savings = analysis.get('net_savings', 0)
+
+            # Calculate target: 20% of monthly income
+            target_savings = monthly_income * 0.20
+
+            # Calculate gap: how much more needs to be saved to reach 20% target
+            gap_to_target = target_savings - current_savings
+
+            # Ensure gap is never negative (use absolute value for display, but logic handles direction)
+            if gap_to_target < 0:
+                gap_to_target = 0  # Already exceeding target
+
+            if recs:
+                total_potential = sum(rec.get('potential_savings', 0) for rec in recs if isinstance(rec, dict))
+                response = f"**Top Opportunities to Save More:**\n\n📊 **Total Potential Savings: ₹{total_potential:,.0f}/month**\n\n"
+
+                for i, rec in enumerate(recs[:5], 1):
+                    title = rec.get('title', 'Recommendation') if isinstance(rec, dict) else str(rec)
+                    savings = rec.get('potential_savings', 0) if isinstance(rec, dict) else 0
+                    action = rec.get('action', '') if isinstance(rec, dict) else ''
+                    priority = rec.get('priority', 'MEDIUM') if isinstance(rec, dict) else 'MEDIUM'
+                    description = rec.get('description', '') if isinstance(rec, dict) else ''
+
+                    # Add priority emoji
+                    priority_emoji = {'HIGH': '🔴', 'MEDIUM': '🟡', 'LOW': '🟢'}.get(priority, '⚪')
+
+                    response += f"{i}. {priority_emoji} **{title}**\n"
+                    response += f"   💰 Save: ₹{savings:,.0f}/month\n"
+                    if description:
+                        response += f"   📝 {description}\n"
+                    if action:
+                        response += f"   🎯 {action}\n\n"
+            else:
+                # Evaluate if savings rate is actually good
+                if savings_rate >= 20:
+                    excess = current_savings - target_savings
+                    response = f"🎉 **Excellent Savings Rate!**\n\nYour current savings rate is {savings_rate:.1f}%, which exceeds the recommended 20% target by ₹{max(0, excess):,.0f}/month. Keep up this excellent work!"
+                elif savings_rate >= 15:
+                    response = f"✅ **Good Savings Rate**\n\nYour current savings rate is {savings_rate:.1f}%. While close to the 20% target, there's room for improvement. You need to increase savings by ₹{gap_to_target:,.0f}/month to reach your goal."
+                elif savings_rate >= 10:
+                    response = f"⚠️ **Below Target Savings Rate**\n\nYour current savings rate is {savings_rate:.1f}%. Target is 20%. You need to reduce expenses by approximately ₹{gap_to_target:,.0f}/month to reach your goal."
+                else:
+                    # For savings rate < 10% - Show action plan with specific methods
+                    response = f"🚨 **Critical: Low Savings Rate**\n\nYour current savings rate is only {savings_rate:.1f}%. This is concerning. Target is 20%.\n\n**Action Plan to Increase Savings by ₹{max(gap_to_target, 0):,.0f}/month:**\n\n**1. Immediate Actions (Quick Wins):**\n   • 🍚 **Food & Dining**: Reduce restaurant expenses, cook at home\n   • 🛍️ **Shopping**: Stop impulse purchases, plan ahead\n   • 🎬 **Entertainment**: Cut subscriptions you don't use regularly\n\n**2. Medium-term (1-3 months):**\n   • 📱 **Utilities**: Compare providers, optimize usage\n   • 🚗 **Travel**: Use public transport, carpool\n   • 🎫 **Entertainment**: Find free/low-cost options\n\n**3. Long-term Adjustments:**\n   • 🏠 **Housing**: Negotiate rent or find cheaper accommodation\n   • 💳 **Debt**: Consider refinancing high-interest loans\n   • 💼 **Income**: Look for better job opportunities\n\n**4. Automation:**\n   • Set up auto-transfer to savings account on payday\n   • Use budgeting apps to track spending\n   • Review monthly progress\n\nStart with 1-2 quick wins and build from there!"
+
+        # 2. General savings inquiry
+        elif 'save' in query_lower or 'savings' in query_lower:
+            savings_rate = analysis.get('savings_percentage', 0)
+            monthly_savings = analysis.get('net_savings', 0)
+            monthly_income = analysis.get('monthly_income', 0)
+            target_savings = monthly_income * 0.20
+            recs = recommendations.get('recommendations', []) if isinstance(recommendations, dict) else []
+
+            response = f"**Your Savings Overview:**\n\n💰 Current savings rate: {savings_rate:.1f}%\n💵 Monthly savings: ₹{monthly_savings:,.0f}\n📊 Annual savings potential: ₹{monthly_savings * 12:,.0f}\n\n**Target vs Actual:**\n🎯 Target savings (20%): ₹{target_savings:,.0f}/month\n"
+
+            if monthly_savings >= target_savings:
+                gap = monthly_savings - target_savings
+                response += f"✅ You're exceeding your target by ₹{gap:,.0f}/month! Excellent work!"
+            else:
+                gap = target_savings - monthly_savings
+                response += f"⚠️ Gap to reach target: ₹{gap:,.0f}/month\n\n"
+
+                # Show recommendations if available
+                if recs:
+                    total_potential = sum(rec.get('potential_savings', 0) for rec in recs if isinstance(rec, dict))
+                    response += f"**Recommended Actions (Total potential: ₹{total_potential:,.0f}/month):**\n\n"
+                    for i, rec in enumerate(recs[:3], 1):
+                        title = rec.get('title', 'Recommendation') if isinstance(rec, dict) else str(rec)
+                        savings = rec.get('potential_savings', 0) if isinstance(rec, dict) else 0
+                        action = rec.get('action', '') if isinstance(rec, dict) else ''
+                        response += f"{i}. **{title}** - Save ₹{savings:,.0f}/month\n   {action}\n\n"
+                else:
+                    response += "💡 Focus on reducing discretionary expenses to close this gap."
+
+        # 3. High spending categories / Where am I spending too much
+        elif any(word in query_lower for word in ['spend', 'spending', 'expensive', 'where', 'most']):
+            total_exp = analysis.get('total_expenses', 0)
+            if total_exp > 0:
+                exp_pct = (total_exp / analysis.get('monthly_income', 1)) * 100
+                response = f"**Your Spending Analysis:**\n\n💸 Total monthly expenses: ₹{total_exp:,.0f}\n📈 Percentage of income: {exp_pct:.1f}%\n\n**Top expense categories:**"
+                # Get category percentages if available
+                cat_pcts = analysis.get('category_percentages', {})
+                if cat_pcts:
+                    sorted_cats = sorted(cat_pcts.items(), key=lambda x: x[1], reverse=True)
+                    for i, (cat, pct) in enumerate(sorted_cats[:3], 1):
+                        response += f"\n{i}. **{cat}**: {pct:.1f}% of income"
+            else:
+                response = "**Your Spending Analysis:**\n\nNo spending data available yet. Please enter your expenses."
+
+        # 4. Income related questions
+        elif 'income' in query_lower:
+            response = f"**Your Income Information:**\n\n💰 Monthly income: ₹{analysis.get('monthly_income', 0):,.0f}\n📅 Annual income: ₹{analysis.get('monthly_income', 0) * 12:,.0f}\n\n**Income allocation:**\n- Spending: {(analysis.get('total_expenses', 0) / analysis.get('monthly_income', 1) * 100):.1f}%\n- Savings: {analysis.get('savings_percentage', 0):.1f}%"
+
+        # 5. Budget related questions
+        elif any(word in query_lower for word in ['budget', 'plan', 'allocate']):
+            response = f"**Budget Planning:**\n\n📋 Recommended budget allocation:\n- Rent/Housing: 30% (₹{analysis.get('monthly_income', 0) * 0.30:,.0f})\n- Food: 15% (₹{analysis.get('monthly_income', 0) * 0.15:,.0f})\n- Utilities: 8% (₹{analysis.get('monthly_income', 0) * 0.08:,.0f})\n- Transportation: 10% (₹{analysis.get('monthly_income', 0) * 0.10:,.0f})\n- Entertainment: 7% (₹{analysis.get('monthly_income', 0) * 0.07:,.0f})\n- Savings: 20% (₹{analysis.get('monthly_income', 0) * 0.20:,.0f})\n\nAdjust based on your priorities and lifestyle!"
+
+        # 6. Goals / Targets related
+        elif any(word in query_lower for word in ['goal', 'target', 'achieve', 'reach']):
+            target_savings = analysis.get('monthly_income', 0) * 0.20
+            current_savings = analysis.get('net_savings', 0)
+            gap = target_savings - current_savings
+            response = f"**Financial Goals & Targets:**\n\n🎯 Recommended savings target: ₹{target_savings:,.0f}/month (20% of income)\n✅ Your current savings: ₹{current_savings:,.0f}/month\n\n"
+            if gap > 0:
+                response += f"📈 To reach your target, increase monthly savings by: ₹{gap:,.0f}\n💡 This could be achieved by reducing discretionary spending or increasing income."
+            else:
+                response += f"🎉 Excellent! You're already saving ₹{abs(gap):,.0f} more than the 20% target!"
+
+        # 7. Debt / EMI related
+        elif any(word in query_lower for word in ['debt', 'emi', 'loan', 'obligation']):
+            response = "**Debt Management Tips:**\n\n📌 Best practices:\n1. **Priority**: Pay high-interest debt first\n2. **Allocation**: Keep debt payments to 15% of income max\n3. **Timeline**: Try to eliminate non-essential debt in 3-5 years\n4. **Strategy**: Build emergency fund (3-6 months expenses) alongside debt repayment\n\nEnter your EMI details in the dashboard for personalized analysis!"
+
+        # 8. Category specific questions (Rent, Food, etc.)
+        elif any(cat in query_lower for cat in ['rent', 'food', 'utilities', 'travel', 'shopping', 'entertainment']):
+            for cat in ['Rent', 'Food', 'Utilities', 'Travel', 'Shopping', 'Entertainment']:
+                if cat.lower() in query_lower:
+                    cat_pct = analysis.get('category_percentages', {}).get(cat, 0)
+                    response = f"**{cat} Spending Analysis:**\n\n💰 Your {cat.lower()} spending: {cat_pct:.1f}% of income\n\n**Recommendations:**\n"
+                    if cat.lower() == 'rent':
+                        response += "- Keep housing costs ≤ 30% of income\n- Consider shared living to reduce costs"
+                    elif cat.lower() == 'food':
+                        response += "- Target: 12-15% of income\n- Try meal planning and cooking at home"
+                    elif cat.lower() == 'utilities':
+                        response += "- Target: 6-8% of income\n- Optimize usage to reduce costs"
+                    elif cat.lower() == 'travel':
+                        response += "- Target: 8-10% of income\n- Use public transport when possible"
+                    elif cat.lower() == 'shopping':
+                        response += "- Target: 10% of income\n- Plan purchases and avoid impulse buying"
+                    elif cat.lower() == 'entertainment':
+                        response += "- Target: 5-7% of income\n- Look for free/low-cost entertainment options"
+                    break
+
+        # 9. Help / Tips / Advice
+        elif any(word in query_lower for word in ['help', 'advice', 'tips', 'how', 'what']):
+            response = "**Financial Advice & Tips:**\n\n💡 Here's how I can help:\n1. **Save More**: Get personalized savings recommendations\n2. **Spending Tips**: Analyze where you're overspending\n3. **Income Info**: View your income allocation\n4. **Budget Plans**: Get recommended budget breakdown\n5. **Goal Setting**: Set and track financial targets\n6. **Debt Management**: Get debt reduction strategies\n7. **Category Analysis**: Deep dive into specific spending categories\n\nJust ask me about any of these topics!"
+
+        # 10. Default/Fallback response
+        if not response:
+            response = "**How can I help with your finances?**\n\nYou can ask me about:\n💰 How to save more money\n📊 Your spending breakdown\n💵 Income and budget\n🎯 Financial goals and targets\n💳 Debt management\n🛒 Specific spending categories\n\nSimply ask your question!"
 
         return {
             'response': response,
