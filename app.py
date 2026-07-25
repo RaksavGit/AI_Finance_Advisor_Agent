@@ -351,9 +351,10 @@ class ChatbotResponder:
 
     def _handle_how_to_save(self) -> str:
         """Response to 'How can I save more?' type queries."""
-        high_rec = [r for r in self.recommendations if r['priority'] == 'HIGH']
+        # Get HIGH and MEDIUM priority recommendations
+        priority_rec = [r for r in self.recommendations if r['priority'] in ['HIGH', 'MEDIUM']]
 
-        if not high_rec:
+        if not priority_rec:
             return (
                 f"Great news! Your spending is already well-optimized. "
                 f"You're currently saving ${self.engine.net_savings:,.0f}/month ({self.engine.savings_percentage:.1f}%).\n\n"
@@ -364,7 +365,7 @@ class ChatbotResponder:
             )
 
         response = "**Top Opportunities to Save More:**\n\n"
-        for i, rec in enumerate(high_rec[:3], 1):
+        for i, rec in enumerate(priority_rec[:5], 1):
             response += f"{i}. **{rec['title']}**\n"
             response += f"   Potential monthly savings: ${rec['potential_savings']:,.0f}\n"
             response += f"   Action: {rec['action']}\n\n"
