@@ -244,6 +244,7 @@ def initialize_session_state():
                 'enable_notifications': False,
                 'enable_analytics': True,
                 'enable_investments': True,
+                'enable_data_export': True,
             }
         )
         st.session_state.finance_system = FinanceAdvisorSystem(config)
@@ -351,6 +352,10 @@ def render_dashboard(system: FinanceAdvisorSystem):
 
     if st.button("🔍 Analyze Finances", use_container_width=True):
         try:
+            # Store current data for export
+            st.session_state.current_income = st.session_state.monthly_income
+            st.session_state.current_expenses = st.session_state.expenses.copy()
+
             # Analyze expenses
             analysis = system.analyze_expenses(
                 st.session_state.session_id,
@@ -703,6 +708,52 @@ def render_plugins(system: FinanceAdvisorSystem):
     if not plugins:
         st.info("No plugins loaded. Configure plugins in your deployment settings.")
         return
+
+    # Add data export section for data_export plugin
+    if 'data_export' in plugins:
+        st.markdown("### 📥 Export Your Financial Data")
+
+        # Check if we have session data to export
+        if st.session_state.get('current_income') and st.session_state.get('current_expenses'):
+            export_col1, export_col2 = st.columns(2)
+
+            with export_col1:
+                if st.button("📥 Download as CSV", key="export_csv"):
+                    export_result = plugin_manager.execute_plugin('data_export', {
+                        'format': 'csv',
+                        'monthly_income': st.session_state.current_income,
+                        'expenses': st.session_state.current_expenses
+                    })
+
+                    if export_result['status'] == 'success':
+                        st.download_button(
+                            label="💾 CSV File Ready",
+                            data=export_result['data'],
+                            file_name=export_result['filename'],
+                            mime="text/csv",
+                            key="download_csv"
+                        )
+
+            with export_col2:
+                if st.button("📥 Download as JSON", key="export_json"):
+                    export_result = plugin_manager.execute_plugin('data_export', {
+                        'format': 'json',
+                        'monthly_income': st.session_state.current_income,
+                        'expenses': st.session_state.current_expenses
+                    })
+
+                    if export_result['status'] == 'success':
+                        st.download_button(
+                            label="💾 JSON File Ready",
+                            data=export_result['data'],
+                            file_name=export_result['filename'],
+                            mime="application/json",
+                            key="download_json"
+                        )
+        else:
+            st.info("💡 Enter your income and expenses on the Dashboard to enable data export.")
+
+        st.divider()
 
     for plugin_name in plugins:
         plugin = plugin_manager.get_plugin(plugin_name)

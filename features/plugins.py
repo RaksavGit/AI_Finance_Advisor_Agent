@@ -284,6 +284,58 @@ class InvestmentAdvisorPlugin(PluginInterface):
         }
 
 
+class DataExportPlugin(PluginInterface):
+    """Plugin for exporting financial data to various formats."""
+
+    def initialize(self) -> bool:
+        self.is_initialized = True
+        return True
+
+    def validate_config(self) -> bool:
+        return 'export_formats' in self.config.config_data
+
+    def execute(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Export financial data to specified format."""
+        export_format = data.get('format', 'csv')
+        expenses = data.get('expenses', {})
+        income = data.get('monthly_income', 0)
+
+        export_data = {
+            'monthly_income': income,
+            'total_expenses': sum(expenses.values()),
+            'expenses_breakdown': expenses,
+            'export_date': datetime.now().isoformat(),
+        }
+
+        if export_format == 'csv':
+            csv_content = "Category,Amount\n"
+            for category, amount in expenses.items():
+                csv_content += f"{category},₹{amount:,.0f}\n"
+            csv_content += f"TOTAL_EXPENSES,₹{sum(expenses.values()):,.0f}\n"
+            csv_content += f"MONTHLY_INCOME,₹{income:,.0f}\n"
+            return {
+                'status': 'success',
+                'format': 'csv',
+                'data': csv_content,
+                'filename': f'financial_data_{datetime.now().strftime("%Y%m%d")}.csv'
+            }
+
+        elif export_format == 'json':
+            return {
+                'status': 'success',
+                'format': 'json',
+                'data': json.dumps(export_data, indent=2),
+                'filename': f'financial_data_{datetime.now().strftime("%Y%m%d")}.json'
+            }
+
+        else:
+            return {
+                'status': 'error',
+                'message': f'Unsupported export format: {export_format}',
+                'supported_formats': ['csv', 'json']
+            }
+
+
 class MCPServer:
     """Model Context Protocol Server for tool/resource exposure."""
 

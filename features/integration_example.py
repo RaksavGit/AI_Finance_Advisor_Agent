@@ -8,7 +8,7 @@ from features.skills import (
 )
 from features.hooks import HookManager, HookType, create_logging_hook, create_validation_hook
 from features.plugins import PluginManager, PluginConfig, PluginType, setup_mcp_server
-from features.plugins import BankingDataPlugin, NotificationPlugin, AnalyticsPlugin, InvestmentAdvisorPlugin
+from features.plugins import BankingDataPlugin, NotificationPlugin, AnalyticsPlugin, InvestmentAdvisorPlugin, DataExportPlugin
 from features.governance import setup_governance_engine
 from features.observability import TraceLogger, MetricsCollector, PerformanceMonitor, HealthCheck
 from features.deployment import DeploymentConfig, DeploymentEnvironment, DeploymentPlatform
@@ -99,6 +99,7 @@ class FinanceAdvisorSystem:
         self.plugin_manager.register_plugin_class("notifications", NotificationPlugin)
         self.plugin_manager.register_plugin_class("analytics", AnalyticsPlugin)
         self.plugin_manager.register_plugin_class("investment_advisor", InvestmentAdvisorPlugin)
+        self.plugin_manager.register_plugin_class("data_export", DataExportPlugin)
 
         # Load plugins based on configuration
         if self.config.config_data.get('enable_banking'):
@@ -140,6 +141,16 @@ class FinanceAdvisorSystem:
                 config_data={'advisor_type': 'robo_advisor'}
             )
             self.plugin_manager.load_plugin(investment_config)
+
+        if self.config.config_data.get('enable_data_export'):
+            export_config = PluginConfig(
+                name="data_export",
+                type=PluginType.INTEGRATION,
+                version="1.0",
+                enabled=True,
+                config_data={'export_formats': ['csv', 'json']}
+            )
+            self.plugin_manager.load_plugin(export_config)
 
     def analyze_expenses(self, session_id: str, income: float, expenses: Dict[str, float]) -> Dict[str, Any]:
         """Analyze expenses using skill system."""
